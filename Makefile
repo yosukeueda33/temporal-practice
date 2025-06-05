@@ -1,5 +1,5 @@
 MCU=atmega328p
-F_CPU=10000000UL
+F_CPU=8000000UL
 CC=avr-gcc
 OBJCOPY=avr-objcopy
 CFLAGS=-Wall -Os -mmcu=$(MCU) -DF_CPU=$(F_CPU)\

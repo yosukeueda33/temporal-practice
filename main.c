@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/interrupt.h>
 #include "copilot_cords.h"
 
 #define RCLK PB2
@@ -26,6 +27,22 @@ const uint8_t digits_ca[10] = {
     ~(SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G), // 8
     ~(SEG_A | SEG_B | SEG_C | SEG_D | SEG_F | SEG_G)          // 9
 };
+
+volatile uint32_t millis = 0;
+
+// 1msごとのタイマー割り込み（Timer0設定）
+void timer0_init(void) {
+    // CTCモード, プリスケーラ64
+    TCCR0A = (1 << WGM01);
+    TCCR0B = (1 << CS01) | (1 << CS00);
+    OCR0A = 124;  // 8MHz / 64 / 125 = 1kHz → 1ms周期
+    TIMSK0 = (1 << OCIE0A);
+}
+
+// 1msごとに呼ばれる割り込み
+ISR(TIMER0_COMPA_vect) {
+    millis++;
+}
 
 void spi_init(void) {
     // MOSI and SCK as output, others as input
@@ -78,8 +95,9 @@ void change_led(bool x){
 }
 
 int main(void) {
-    // Set PB0 as output
     spi_init();
+    timer0_init();
+    sei();
 
     DDRB |= (1 << PB0); // For LED.
 
@@ -88,10 +106,13 @@ int main(void) {
     
     change_digit(0);
 
+    uint32_t prev_millis = 0;
     while (1) {
-        _delay_ms(1);
-        update_inputs();
-        step();
+        if (millis - prev_millis >= 1) {
+            prev_millis = millis;
+            update_inputs();
+            step();
+        }
     }
 }
 
