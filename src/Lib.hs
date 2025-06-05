@@ -6,13 +6,15 @@ import Copilot.Language.Spec
 import Copilot.Compile.C99
 
 
-oneShotRise :: Stream Bool -> Stream Bool
-oneShotRise s = s && not prev
+oneShotRise, oneShotRise'  :: Stream Bool -> Stream Bool
+oneShotRise s = s && not (sP s)
+oneShotRise' s = s && not prev
   where
     prev = [False] ++ s
 
-oneShotFall :: Stream Bool -> Stream Bool
-oneShotFall s = not s && prev
+oneShotFall, oneShotFall' :: Stream Bool -> Stream Bool
+oneShotFall s = not s && sP s
+oneShotFall' s = not s && prev
   where
     prev = [False] ++ s
 

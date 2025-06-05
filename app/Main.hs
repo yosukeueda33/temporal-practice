@@ -8,7 +8,7 @@ import Language.Copilot hiding (alwaysBeen, since)
 import Copilot.Language.Spec
 import Copilot.Language.Stream
 import Copilot.Compile.C99
-import Lib (oneShotRise, alwaysBeen', debounceRise, debounce, srsFF, once', weakPrevious, atLast)
+import Lib (oneShotRise, alwaysBeen', debounceRise, debounce, srsFF, once', weakPrevious, atLast, oneShotRise')
 import qualified Data.Bifunctor as BF
 
 lim :: (Typed a, Ord a) => Stream a -> Stream a -> Stream a -> Stream a
@@ -44,6 +44,9 @@ caseAction cAse l = f l false
     f :: [(Stream Word8, Stream Bool)] -> (Stream Bool -> Stream Bool)
     f = foldl (\acc (s, a) -> (\x -> acc $ mux (cAse == s) a x)) id
 
+blink :: Word16 -> Stream Bool
+blink len = toggle $ clk1 (period len) (phase 0)
+
 stateToBlink :: Stream Word8 -> Stream Bool
 stateToBlink nowState = caseAction nowState $ bmmap (Const . myStateToW8) id  
                               [
@@ -53,7 +56,6 @@ stateToBlink nowState = caseAction nowState $ bmmap (Const . myStateToW8) id
                               , (ResetTimer, false)
                               ]
   where
-    blink len = toggle $ clk (period len) (phase 0)
     bmmap f1 f2 = map (BF.bimap f1 f2)
 
 myStateToW8 :: MyState -> Word8
@@ -89,28 +91,29 @@ progs :: [Arg]
 progs = [arg $ P.foldl1 (||)
         $ map (\(n, f) -> cnt == n && f (cnt == n && buttonA) (cnt == n && buttonB)) l]
   where l = [
-              (0, \a b -> once' 100 $ oneShotRise a)
-            , (1, \a b -> once' 100 $ oneShotFall a)
-            , (2, \a b -> toggle $ tr a)
-            , (3, \a b -> srsFF a b)
-            , (4, \a b -> alwaysBeen' 1000 a)
-            , (5, \a b -> once' 1000 a)
-            , (6, \a b -> weakPrevious a)
-            , (7, \a b -> strongPrevious a)
-            , (8, \a b -> since a b)
-            , (9, \a b -> since' a b)
-            , (10, \a b -> backTo a b)
-            , (11, \a b -> atLast' a b)
-            , (12, \a b -> after' a b)
-            , (13, \a b -> debounce 2000 a)
-            , (14, \a b -> since' a $ once' 1000 b)
-            , (15, \a b -> seriesPattern
+              (0, \a b -> blink 1000)
+            , (1, \a b -> once' 100 $ oneShotRise a)
+            , (2, \a b -> once' 100 $ oneShotFall a)
+            , (3, \a b -> toggle $ tr a)
+            , (4, \a b -> srsFF a b)
+            , (5, \a b -> alwaysBeen' 1000 a)
+            , (6, \a b -> once' 1000 a)
+            , (7, \a b -> weakPrevious a)
+            , (8, \a b -> strongPrevious a)
+            , (9, \a b -> since a b)
+            , (10, \a b -> since' a b)
+            , (11, \a b -> backTo a b)
+            , (12, \a b -> atLast' a b)
+            , (13, \a b -> after' a b)
+            , (14, \a b -> debounce 2000 a)
+            , (15, \a b -> since' a $ once' 1000 b)
+            , (16, \a b -> seriesPattern
                             -- (wanted signal, signal for cancelation)
                             [ (tr b, tr a)   
                             , (tr b, tr a)
                             , (tr a, tr b)
                             , (tr a, tr b)])
-            , (16, \a b -> stateToBlink $ myState (tr a) (tr b))
+            , (17, \a b -> stateToBlink $ myState (tr a) (tr b))
             ] :: [(Stream Word16, Stream Bool -> Stream Bool -> Stream Bool)]
         tr = oneShotRise
 
@@ -130,8 +133,6 @@ spec = do
 
   return ()
 
-
 main :: IO ()
 main = do
-  -- interpret 20 spec
   reify spec >>= compile "copilot_cords"
